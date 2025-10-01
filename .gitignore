@@ -1,0 +1,34 @@
+# Ignore PyCharm project settings
+.idea/
+
+# Ignore virtual environments
+.venv/
+venv/
+
+# Ignore Python cache files
+**/__pycache__/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore temporary and backup files
+*.log
+*.tmp
+*.bak
+*.swp
+*.DS_Store
+
+# Ignore coverage reports
+htmlcov/
+.coverage
+.cache/
+
+# Ignore compiled Python bytecode
+*.pyc
+*.pyo
+
+# Ignore pip logs
+pip-log.txt
+
+# Ignore VS Code settings (if applicable)
+.vscode/
