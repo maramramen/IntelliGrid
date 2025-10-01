@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, APIRouter
 from sqlalchemy.orm import Session
+from starlette.responses import JSONResponse
+
 from app.infrastructure.database import SessionLocal, Base, engine
 from app.database.models.user import SqlAlchemyUserRepository
 from app.services.user_service import UserService
@@ -7,7 +9,7 @@ from app.api.schemas.user_schemas import RegisterRequest, LoginRequest, UpdatePa
 
 Base.metadata.create_all(bind=engine)
 
-router = APIRouter()
+router = APIRouter(prefix="/auth")
 
 def get_db():
     db = SessionLocal()
@@ -16,16 +18,14 @@ def get_db():
     finally:
         db.close()
 
-@router.post("/register")
+@router.post("/adm/register")
 def register(request: RegisterRequest, db: Session = Depends(get_db)):
     repo = SqlAlchemyUserRepository(db)
     service = UserService(repo)
-    user = service.register_user(
-        request.first_name,
-        request.last_name,
-        request.username,
-        request.password
-    )
+    try:
+        user = service.register_user(request)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
     return {"msg": "User registered", "user": user.dict(exclude={"password_hash"})}
 
 
