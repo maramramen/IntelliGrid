@@ -1,5 +1,7 @@
 import hashlib
 from logging import exception
+
+from app.services.user_service_exception import PasswordUpdateRequiredException, InvalidUsernameOrPasswordException
 from typing import Optional
 from passlib.context import CryptContext
 import re
@@ -30,7 +32,7 @@ class UserService:
         return pwd_context.verify(sha256_hex, hashed_password)
 
     # ---------------------------
-    # Registro de usuário
+    # Register user
     # ---------------------------
     def register_user(self, dto: RegisterRequest) -> User:
         if (
@@ -63,22 +65,29 @@ class UserService:
     # ---------------------------
     # Login
     # ---------------------------
-    def login(self, username: str, password: str) -> Optional[str]:
+    def login(self, username: str, password: str, is_update: bool = False) -> Optional[str]:
         user = self.repo.find_by_username(username)
+        if not is_update and user.next_login_reset:
+            raise PasswordUpdateRequiredException("Password update required", code=1001)
         if user and self._verify_password(password, user.password_hash):
             token = create_access_token({"sub": user.username})
             return token
-        return None
+        raise InvalidUsernameOrPasswordException("Invalid username or password", code=1002)
 
     # ---------------------------
     # Updates password
     # ---------------------------
-    def update_password(self, username: str, new_password: str) -> bool:
+    def update_password(self, username: str, current_password: str, new_password: str) -> Optional[str]:
+        if not self.validate_password(new_password):
+            raise ValueError(
+                """New password should contain at least 8 characters, an uppercase letter, lowercase letter, a number a special character (!@#$%^&* etc.)""")
         user = self.repo.find_by_username(username)
-        if user:
-            self.repo.update_password(user.id, self._hash_password(new_password))
-            return True
-        return False
+        if user and self._verify_password(current_password, user.password_hash):
+            user = self.repo.update_password(user.id, self._hash_password(new_password))
+            if user and self._verify_password(new_password, user.password_hash):
+                token = create_access_token({"sub": user.username})
+                return token
+        raise InvalidUsernameOrPasswordException("Invalid username or password", code=1002)
 
     # ---------------------------
     # Password validation

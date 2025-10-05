@@ -33,8 +33,12 @@ class SqlAlchemyUserRepository(UserRepository):
         db_user = self.db.query(UserModel).filter_by(username=username).first()
         return User(**db_user.__dict__) if db_user else None
 
-    def update_password(self, user_id: int, new_password: str) -> None:
+    def update_password(self, user_id: int, new_password: str) -> User | None:
         user = self.db.query(UserModel).filter_by(id=user_id).first()
         if user:
             user.password_hash = new_password
+            user.next_login_reset = False
             self.db.commit()
+            self.db.refresh(user)
+            return user
+        return None

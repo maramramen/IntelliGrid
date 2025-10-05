@@ -1,3 +1,6 @@
+from sys import exception
+from app.services.user_service_exception import PasswordUpdateRequiredException, InvalidUsernameOrPasswordException
+
 from fastapi import FastAPI, Depends, HTTPException, APIRouter
 from sqlalchemy.orm import Session
 from starlette.responses import JSONResponse
@@ -33,9 +36,14 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     repo = SqlAlchemyUserRepository(db)
     service = UserService(repo)
-    token = service.login(request.username, request.password)
-    if not token:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+    try:
+        token = service.login(request.username, request.password)
+        if not token:
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+    except PasswordUpdateRequiredException as p:
+        return {"error_code": p.code, "error_message": str(p)}
+    except InvalidUsernameOrPasswordException as i:
+        return {"error_code": i.code, "error_message": str(i)}
     return {"access_token": token, "token_type": "bearer"}
 
 
@@ -43,7 +51,10 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 def update_password(request: UpdatePasswordRequest, db: Session = Depends(get_db)):
     repo = SqlAlchemyUserRepository(db)
     service = UserService(repo)
-    success = service.update_password(request.username, request.new_password)
-    if not success:
-        raise HTTPException(status_code=404, detail="User not found")
-    return {"msg": "Password updated"}
+    try:
+        token = service.update_password(request.username, request.current_password, request.new_password)
+    except InvalidUsernameOrPasswordException as i:
+        return {"error_code": i.code, "error_message": str(i)}
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    return {"access_token": token, "token_type": "bearer"}
